@@ -1,5 +1,5 @@
-from smbus import SMBus
-import RPi.GPIO as GPIO
+from smbus import SMBus # pyright: ignore[reportMissingImports]
+import RPi.GPIO as GPIO # pyright: ignore[reportMissingModuleSource]
 import time
 from datetime import datetime
 
