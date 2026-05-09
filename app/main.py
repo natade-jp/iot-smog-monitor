@@ -65,11 +65,14 @@ class LoggingConfig:
 
     Attributes:
         summary_interval_sec: CSV 集計行の出力間隔（秒）。
-        output_csv: 出力先 CSV ファイルパス。
+        output_dir: ログファイル出力先ディレクトリ。
+        output_file_template: ログファイル名テンプレート。
+            strftime 形式（例: `smell_summary_%Y-%m-%d.csv`）を含めると日付ごとに分割できる。
     """
 
     summary_interval_sec: int
-    output_csv: str
+    output_dir: str
+    output_file_template: str
 
 
 def load_config(path: Path):
@@ -104,7 +107,8 @@ def load_config(path: Path):
     )
     logging_cfg = LoggingConfig(
         summary_interval_sec=raw["logging"]["summary_interval_sec"],
-        output_csv=raw["logging"]["output_csv"],
+        output_dir=raw["logging"].get("output_dir", "/opt/iot-smog-monitor/data"),
+        output_file_template=raw["logging"].get("output_file_template", "smell_summary_%Y-%m-%d.csv"),
     )
     return sensor, detection, audio, logging_cfg
 
@@ -122,6 +126,22 @@ def ensure_log_file(path: Path):
         with path.open("w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(["timestamp", "samples", "mean_v", "max_v", "min_v"])
+
+
+def resolve_log_path(output_dir: str, output_file_template: str, now: datetime | None = None) -> Path:
+    """ログ出力先ディレクトリとファイル名テンプレートからパスを解決する。
+
+    Args:
+        output_dir: ログ出力先ディレクトリ。
+        output_file_template: strftime 形式を含むファイル名テンプレート。
+        now: 解決に使う時刻。未指定時は現在時刻。
+
+    Returns:
+        解決済みの CSV パス。
+    """
+
+    current = now or datetime.now()
+    return Path(output_dir) / current.strftime(output_file_template)
 
 
 def read_voltage(bus: SMBus, address: int, divider_ratio: float) -> float:
@@ -200,7 +220,7 @@ def main():
 
     config_path = Path(__file__).with_name("config.json")
     sensor, detection, audio, logging_cfg = load_config(config_path)
-    log_path = Path(logging_cfg.output_csv)
+    log_path = resolve_log_path(logging_cfg.output_dir, logging_cfg.output_file_template)
     ensure_log_file(log_path)
 
     GPIO.setmode(GPIO.BCM)
@@ -249,6 +269,9 @@ def main():
 
             if now >= next_summary_at:
                 # 5分ごとに集計を確定し、次の窓を開始する。
+                # 日付入りファイル名を使っている場合は、ここで自動的に当日ファイルへ切り替わる。
+                log_path = resolve_log_path(logging_cfg.output_dir, logging_cfg.output_file_template)
+                ensure_log_file(log_path)
                 append_summary(log_path, summary_values)
                 summary_values.clear()
                 next_summary_at = now + logging_cfg.summary_interval_sec

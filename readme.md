@@ -111,7 +111,10 @@ journalctl -u smog-monitor.service -f
 
 ## ログ仕様
 
-- 出力先: `app/config.json` の `logging.output_csv`
+- 出力先ディレクトリ: `app/config.json` の `logging.output_dir`
+- ファイル名テンプレート: `app/config.json` の `logging.output_file_template`
+- ファイル名テンプレートは `strftime` 形式が使えます（例: `smell_summary_%Y-%m-%d.csv`）
+- `%Y-%m-%d` は `yyyy-mm-dd` 形式です（例: `2026-05-09`）
 - 5分ごとに以下を追記
     - timestamp
     - samples（5分内サンプル数）
@@ -126,6 +129,8 @@ journalctl -u smog-monitor.service -f
 - `detection.cooldown_sec`: アラート連発を防ぐ待ち時間（秒）
 - `audio.file_path`: 再生する音声ファイル
 - `logging.summary_interval_sec`: 集計ログ周期（秒）
+- `logging.output_dir`: 集計ログの出力先ディレクトリ
+- `logging.output_file_template`: 集計ログのファイル名（`%Y-%m-%d` などの日付展開に対応）
 
 ## Hardware
 

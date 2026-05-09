@@ -17,6 +17,7 @@
 	},
 	"logging": {
 		"summary_interval_sec": 300,
-		"output_csv": "/opt/iot-smog-monitor/data/smell_summary.csv"
+		"output_dir": "/opt/iot-smog-monitor/data",
+		"output_file_template": "smell_summary_%Y-%m-%d.csv"
 	}
 }
