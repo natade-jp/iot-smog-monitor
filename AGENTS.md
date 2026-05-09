@@ -1,11 +1,11 @@
 # AGENTS
 
-## Purpose
+## 目的
 
-This repository is a Raspberry Pi application for odor/VOC monitoring with TGS8100 + MCP3425.
-The app samples every second, detects sudden increases, plays an alert sound, and writes 5-minute summaries.
+このリポジトリは、TGS8100 + MCP3425 を使った Raspberry Pi 向けのにおい/VOC監視アプリです。
+1秒ごとにサンプリングし、急増検知時にアラート音を鳴らし、5分単位の集計ログを出力します。
 
-## Primary Edit Targets
+## 主な編集対象
 
 - `app/main.py`
 - `app/config.json`
@@ -13,31 +13,35 @@ The app samples every second, detects sudden increases, plays an alert sound, an
 - `deploy/smog-monitor.service`
 - `readme.md`
 
-## Guardrails
+## ガードレール
 
-- Keep hardware pin/I2C assumptions consistent with README unless explicitly asked to change.
-- Do not change default GPIO/I2C settings in `app/config.json` without clear reason.
-- Keep `systemd` unit paths aligned with `/opt/iot-smog-monitor`.
-- Prefer additive and backward-compatible changes.
-- Avoid introducing heavy dependencies unless required.
+- 明示的な指示がない限り、ハードウェアのピン配置/I2C前提は README と一致させること。
+- `app/config.json` の GPIO/I2C デフォルト値は、明確な理由なく変更しないこと。
+- `systemd` ユニット内のパスは `/opt/iot-smog-monitor` と整合させること。
+- 変更は追記型・後方互換性重視を優先すること。
+- 必要がない限り、重い依存関係を増やさないこと。
 
-## Runtime Notes
+## 実行時メモ
 
-- Target hardware is Raspberry Pi B+ (legacy model). Prefer compatibility-first and lightweight choices.
-- This project depends on Raspberry Pi hardware (`RPi.GPIO`, `smbus`) and cannot be fully validated on non-Pi environments.
-- Audio playback uses external command from config (`audio.player_command`, default `aplay`).
+- 対象ハードウェアは Raspberry Pi B+（旧世代モデル）。互換性優先・軽量実装を重視すること。
+- 本プロジェクトは Raspberry Pi 実機依存（`RPi.GPIO`, `smbus`）のため、非 Pi 環境では完全検証できません。
+- 音声再生は設定ファイルの外部コマンド（`audio.player_command`, 既定 `aplay`）を利用します。
 
-## Validation Checklist
+## 変更時チェックリスト
 
-When making changes, verify at least:
+変更時は最低限、以下を確認すること。
 
-1. Python syntax is valid for edited files.
-2. README instructions still match actual file paths and commands.
-3. `deploy/install.sh` and `deploy/smog-monitor.service` remain consistent with each other.
-4. Logging and alert behavior remain configurable via `app/config.json`.
+1. 編集した Python ファイルの構文が正しいこと。
+2. README の手順と実際のファイルパス/コマンドが一致していること。
+3. `deploy/install.sh` と `deploy/smog-monitor.service` の内容が整合していること。
+4. ログ出力やアラート挙動が `app/config.json` で設定可能なままであること。
 
-## Style
+## スタイル
 
-- Keep code simple and readable.
-- Add concise comments only where intent is non-obvious.
-- Prefer explicit names over compact clever logic.
+- コードはシンプルで読みやすく保つこと。
+- 意図が分かりにくい箇所にのみ、簡潔なコメントを追加すること。
+- 短く複雑な書き方より、明示的で読みやすい書き方を優先すること。
+- 関数の引数/戻り値、クラスフィールドには Python の型ヒントを積極的に付けること。
+- 公開関数/クラスには docstring を付け、IDE のホバー/補完で意味が分かる状態にすること。
+- 説明コメントや docstring は日本語で記述すること。
+- 識別子（関数名/変数名/クラス名）は、特別な理由がない限り英語を使うこと。

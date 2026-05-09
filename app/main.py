@@ -14,6 +14,16 @@ from smbus import SMBus
 
 @dataclass
 class SensorConfig:
+    """センサーおよびサンプリング設定。
+
+    Attributes:
+        pulse_pin: TGS8100 の PULSE に接続する BCM GPIO 番号。
+        i2c_address: MCP3425 の I2C アドレス（例: 0x68）。
+        sample_interval_sec: サンプリング周期（秒）。
+        warmup_sec: PULSE を HIGH にしてから ADC 読み取りまでの待機時間（秒）。
+        divider_ratio: 分圧を元に戻す係数（1/2分圧なら 2.0）。
+    """
+
     pulse_pin: int
     i2c_address: int
     sample_interval_sec: float
@@ -23,6 +33,14 @@ class SensorConfig:
 
 @dataclass
 class DetectionConfig:
+    """アラート判定設定。
+
+    Attributes:
+        window_sec: 移動平均に使う窓サイズ（秒）。
+        trigger_delta_v: 急増判定しきい値（今回値 - 直前平均）の電圧差（V）。
+        cooldown_sec: アラート再通知までの最小待機時間（秒）。
+    """
+
     window_sec: int
     trigger_delta_v: float
     cooldown_sec: int
@@ -30,17 +48,40 @@ class DetectionConfig:
 
 @dataclass
 class AudioConfig:
+    """音声再生設定。
+
+    Attributes:
+        player_command: 外部再生コマンド（例: `aplay`）。
+        file_path: アラート音声ファイルのパス。
+    """
+
     player_command: str
     file_path: str
 
 
 @dataclass
 class LoggingConfig:
+    """定期集計ログ設定。
+
+    Attributes:
+        summary_interval_sec: CSV 集計行の出力間隔（秒）。
+        output_csv: 出力先 CSV ファイルパス。
+    """
+
     summary_interval_sec: int
     output_csv: str
 
 
 def load_config(path: Path):
+    """JSON 設定を読み込み、型付き設定オブジェクトに変換する。
+
+    Args:
+        path: `config.json` のパス。
+
+    Returns:
+        (SensorConfig, DetectionConfig, AudioConfig, LoggingConfig) のタプル。
+    """
+
     # JSON設定を読み込み、扱いやすい dataclass に詰め替える。
     with path.open("r", encoding="utf-8") as f:
         raw = json.load(f)
@@ -69,6 +110,12 @@ def load_config(path: Path):
 
 
 def ensure_log_file(path: Path):
+    """ログ用ディレクトリと CSV ヘッダを必要に応じて作成する。
+
+    Args:
+        path: CSV ファイルパス。
+    """
+
     # ログ先ディレクトリとCSVヘッダを初期化する。
     path.parent.mkdir(parents=True, exist_ok=True)
     if not path.exists():
@@ -78,6 +125,17 @@ def ensure_log_file(path: Path):
 
 
 def read_voltage(bus: SMBus, address: int, divider_ratio: float) -> float:
+    """MCP3425 を1回読み取り、実センサー電圧へ変換する。
+
+    Args:
+        bus: 開いている SMBus インスタンス（通常 Raspberry Pi の bus 1）。
+        address: MCP3425 の I2C アドレス。
+        divider_ratio: 分圧補正の係数。
+
+    Returns:
+        センサー電圧（V）。
+    """
+
     # MCP3425 16bit符号付き値を実電圧へ変換する。
     data = bus.read_i2c_block_data(address, 0, 3)
     raw = (data[0] << 8) | data[1]
@@ -88,6 +146,13 @@ def read_voltage(bus: SMBus, address: int, divider_ratio: float) -> float:
 
 
 def append_summary(path: Path, values: list[float]):
+    """現在の集計窓に対するサマリ1行を CSV に追記する。
+
+    Args:
+        path: 出力先 CSV パス。
+        values: 集計対象の生電圧サンプル列。
+    """
+
     # 5分窓の集計結果を1行追記する。
     if not values:
         return
@@ -105,6 +170,12 @@ def append_summary(path: Path, values: list[float]):
 
 
 def play_alert(audio_cfg: AudioConfig):
+    """外部コマンドでアラート音を再生する。
+
+    Args:
+        audio_cfg: 音声再生設定。
+    """
+
     # 外部プレイヤーを使って警告音を再生する。
     try:
         subprocess.run(
@@ -121,6 +192,12 @@ def play_alert(audio_cfg: AudioConfig):
 
 
 def main():
+    """監視のメインループ。
+
+    センサー値を継続サンプリングし、急増検知時に音を再生し、
+    定期的に集計ログを出力する。
+    """
+
     config_path = Path(__file__).with_name("config.json")
     sensor, detection, audio, logging_cfg = load_config(config_path)
     log_path = Path(logging_cfg.output_csv)
