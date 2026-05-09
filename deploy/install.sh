@@ -29,6 +29,8 @@ rsync -av --delete \
 # ログ保存ディレクトリを作成
 mkdir -p "${DEST_DIR}/data"
 chmod 755 "${DEST_DIR}/data"
+# サービスは User=pi で動作するため、ログ出力先は pi が書き込めるようにする
+chown -R pi:pi "${DEST_DIR}/data"
 
 # Python依存を apt で導入（PEP 668 環境でも安全）
 apt update
