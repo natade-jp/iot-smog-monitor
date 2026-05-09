@@ -60,7 +60,7 @@ i2cdetect -y 1
 
 #### Python
 
-`deploy/install.sh` で `requirements.txt` から導入しますが、手動で入れる場合は以下です。
+`deploy/install.sh` でも導入されます。手動で入れる場合は以下です。
 
 ```bash
 sudo apt install python3-rpi.gpio -y
