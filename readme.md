@@ -80,7 +80,7 @@ sudo apt install -y alsa-utils
 1. Git から取得
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/natade-jp/iot-smog-monitor
 cd iot-smog-monitor
 ```
 
@@ -107,6 +107,29 @@ sudo bash deploy/install.sh
 ```bash
 systemctl status smog-monitor.service
 journalctl -u smog-monitor.service -f
+```
+
+### アンインストール
+
+```bash
+# サービス停止
+sudo systemctl stop smog-monitor.service
+
+# 自動起動無効化
+sudo systemctl disable smog-monitor.service
+
+# systemd 定義削除
+sudo rm /etc/systemd/system/smog-monitor.service
+sudo systemctl daemon-reload
+
+# 配置先アプリ削除
+sudo rm -rf /opt/iot-smog-monitor
+```
+
+確認:
+
+```bash
+systemctl status smog-monitor.service
 ```
 
 ## ログ仕様
