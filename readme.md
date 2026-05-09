@@ -1,17 +1,131 @@
 # smog monitor
 
-Raspberry Pi + TGS8100 + MCP3425 を使用した VOC / 臭気監視システムです。
+Raspberry Pi + TGS8100 + MCP3425 で、におい/VOCの急増を検知して音声アラートを出す監視アプリです。
 
-TGS8100 により空気中の VOC（揮発性有機化合物）や臭気変化を検知し、
-Raspberry Pi 上で監視します。
+## このリポジトリでできること
 
-## Features
+- 1秒ごとににおいセンサー電圧を取得
+- 直近10秒の移動平均を維持
+- 突然の増加（しきい値超過）で音声再生
+- 5分ごとの集計ログを CSV に保存
+- systemd で Raspberry Pi 起動時に自動起動
 
-- TGS8100 による VOC / 臭気検知
-- MCP3425 による高精度 ADC 読み取り
-- Raspberry Pi GPIO による PULSE 制御
-- I2C 接続
-- 平常時平均との差による変化検知
+## ディレクトリ構成
+
+```text
+app/
+  main.py          # 本番アプリ本体
+  config.json      # 閾値・GPIO・ログ先などの設定
+assets/
+  alert.wav        # アラート音声（ユーザー配置）
+deploy/
+  install.sh       # 配置・依存導入・systemd登録
+  smog-monitor.service
+sample/
+  sample.py        # 単体読み取りサンプル
+```
+
+## Raspberry Pi
+
+### 下準備
+
+#### Git
+
+```bash
+sudo apt update
+sudo apt install -y git
+git --version
+```
+
+#### I2C 有効化
+
+```bash
+sudo raspi-config
+```
+
+```text
+Interface Options
+→ I2C
+→ Enable
+```
+
+確認:
+
+```bash
+sudo apt install -y i2c-tools
+i2cdetect -y 1
+```
+
+`68` が見えれば MCP3425 を検出できています。
+
+#### Python
+
+`deploy/install.sh` で `requirements.txt` から導入しますが、手動で入れる場合は以下です。
+
+```bash
+sudo apt install python3-rpi.gpio -y
+sudo apt install python3-smbus -y
+```
+
+#### 音声再生
+
+`app/config.json` の既定では `aplay` を使用するため、以下を導入してください。
+
+```bash
+sudo apt install -y alsa-utils
+```
+
+### 配置と自動起動
+
+1. Git から取得
+
+```bash
+git clone <your-repo-url>
+cd iot-smog-monitor
+```
+
+2. アラート音声を配置
+
+```bash
+cp /path/to/alert.wav assets/alert.wav
+```
+
+3. 必要に応じて設定を変更
+
+```bash
+nano app/config.json
+```
+
+4. インストール（`/opt/iot-smog-monitor` に配置し systemd 登録）
+
+```bash
+sudo bash deploy/install.sh
+```
+
+5. 状態確認
+
+```bash
+systemctl status smog-monitor.service
+journalctl -u smog-monitor.service -f
+```
+
+## ログ仕様
+
+- 出力先: `app/config.json` の `logging.output_csv`
+- 5分ごとに以下を追記
+    - timestamp
+    - samples（5分内サンプル数）
+    - mean_v
+    - max_v
+    - min_v
+
+## 主要設定 (`app/config.json`)
+
+- `detection.window_sec`: 平均の窓サイズ（秒）
+- `detection.trigger_delta_v`: 急増判定しきい値（V）
+- `detection.cooldown_sec`: アラート連発を防ぐ待ち時間（秒）
+- `audio.file_path`: 再生する音声ファイル
+- `logging.summary_interval_sec`: 集計ログ周期（秒）
 
 ## Hardware
 
@@ -72,9 +186,7 @@ Raspberry Pi 上で監視します。
 
 ## Voltage Divider
 
-TGS8100 OUT は最大約3Vとなる可能性があるため、
-MCP3425 の入力範囲 (±2.048V) に収めるために
-10kΩ + 10kΩ の 1/2 分圧を使用しています。
+TGS8100 OUT は最大約3Vとなる可能性があるため、MCP3425 の入力範囲 (±2.048V) に収めるために 10kΩ + 10kΩ の 1/2 分圧を使用します。
 
 ```text
 TGS8100 OUT
@@ -85,32 +197,6 @@ TGS8100 OUT
      │
     GND
 ```
-
-## Enable I2C
-
-```bash
-sudo raspi-config
-```
-
-```text
-Interface Options
-→ I2C
-→ Enable
-```
-
-確認:
-
-```bash
-i2cdetect -y 1
-```
-
-MCP3425 が接続されている場合:
-
-```text
-68
-```
-
-が表示されます。
 
 ## License
 

@@ -1,0 +1,22 @@
+{
+	"sensor": {
+		"pulse_pin": 17,
+		"i2c_address": "0x68",
+		"sample_interval_sec": 1.0,
+		"warmup_sec": 0.001,
+		"divider_ratio": 2.0
+	},
+	"detection": {
+		"window_sec": 10,
+		"trigger_delta_v": 0.02,
+		"cooldown_sec": 30
+	},
+	"audio": {
+		"player_command": "aplay",
+		"file_path": "/opt/iot-smog-monitor/assets/alert.wav"
+	},
+	"logging": {
+		"summary_interval_sec": 300,
+		"output_csv": "/opt/iot-smog-monitor/data/smell_summary.csv"
+	}
+}
