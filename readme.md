@@ -141,6 +141,43 @@ sudo rm -rf /opt/iot-smog-monitor
 systemctl status smog-monitor.service
 ```
 
+### アップデート
+
+既存インストール済み環境を更新する場合は、以下を実行します。
+
+1. リポジトリへ移動
+
+```bash
+cd ~/iot-smog-monitor
+```
+
+2. 最新コード取得
+
+```bash
+git pull origin main
+```
+
+3. （必要なら）設定差分を確認・反映
+
+```bash
+git diff app/config.json
+nano app/config.json
+```
+
+4. 再インストール（`/opt/iot-smog-monitor` 配下を更新し systemd を再登録）
+
+```bash
+sudo bash deploy/install.sh
+```
+
+5. 再起動と状態確認
+
+```bash
+sudo systemctl restart smog-monitor.service
+systemctl status smog-monitor.service
+journalctl -u smog-monitor.service -n 100
+```
+
 ## ログ仕様
 
 - 出力先ディレクトリ: `app/config.json` の `logging.output_dir`
