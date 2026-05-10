@@ -61,16 +61,16 @@ class AudioConfig:
 
 @dataclass
 class LoggingConfig:
-    """定期集計ログ設定。
+    """定期生ログ設定。
 
     Attributes:
-        summary_interval_sec: CSV 集計行の出力間隔（秒）。
+        write_interval_sec: 生ログを CSV にまとめて追記する間隔（秒）。
         output_dir: ログファイル出力先ディレクトリ。
-        output_file_template: ログファイル名テンプレート。
-            strftime 形式（例: `smell_summary_%Y-%m-%d.csv`）を含めると日付ごとに分割できる。
+        output_file_template: 生ログCSVのファイル名テンプレート。
+            strftime 形式（例: `smell_raw_%Y-%m-%d.csv`）を含めると日付ごとに分割できる。
     """
 
-    summary_interval_sec: int
+    write_interval_sec: int
     output_dir: str
     output_file_template: str
 
@@ -106,9 +106,9 @@ def load_config(path: Path):
         file_path=raw["audio"]["file_path"],
     )
     logging_cfg = LoggingConfig(
-        summary_interval_sec=raw["logging"]["summary_interval_sec"],
+        write_interval_sec=raw["logging"]["write_interval_sec"],
         output_dir=raw["logging"].get("output_dir", "/opt/iot-smog-monitor/data"),
-        output_file_template=raw["logging"].get("output_file_template", "smell_summary_%Y-%m-%d.csv"),
+        output_file_template=raw["logging"].get("output_file_template", "smell_raw_%Y-%m-%d.csv"),
     )
     return sensor, detection, audio, logging_cfg
 
@@ -125,7 +125,7 @@ def ensure_log_file(path: Path):
     if not path.exists():
         with path.open("w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
-            writer.writerow(["timestamp", "samples", "mean_v", "max_v", "min_v"])
+            writer.writerow(["timestamp", "voltage_v"])
 
 
 def resolve_log_path(output_dir: str, output_file_template: str, now: datetime | None = None) -> Path:
@@ -165,28 +165,20 @@ def read_voltage(bus: SMBus, address: int, divider_ratio: float) -> float:
     return measured_voltage * divider_ratio
 
 
-def append_summary(path: Path, values: list[float]):
-    """現在の集計窓に対するサマリ1行を CSV に追記する。
+def append_samples(path: Path, values: list[tuple[str, float]]):
+    """現在の集計窓に溜めた生サンプルを CSV にまとめて追記する。
 
     Args:
         path: 出力先 CSV パス。
-        values: 集計対象の生電圧サンプル列。
+        values: (ISO日時文字列, 電圧値) の列。
     """
 
-    # 5分窓の集計結果を1行追記する。
     if not values:
         return
     with path.open("a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(
-            [
-                datetime.now().isoformat(timespec="seconds"),
-                len(values),
-                f"{mean(values):.6f}",
-                f"{max(values):.6f}",
-                f"{min(values):.6f}",
-            ]
-        )
+        for timestamp, voltage in values:
+            writer.writerow([timestamp, f"{voltage:.6f}"])
 
 
 def play_alert(audio_cfg: AudioConfig):
@@ -230,10 +222,10 @@ def main():
 
     # 直近N秒（既定10秒）の移動平均用バッファ。
     window = deque(maxlen=max(1, int(detection.window_sec / sensor.sample_interval_sec)))
-    # 5分ごとCSV集計のために、生サンプルを一時保持する。
-    summary_values: list[float] = []
+    # 5分ごとCSV書き込みのために、生サンプルを一時保持する。
+    raw_samples: list[tuple[str, float]] = []
     last_alert_at = 0.0
-    next_summary_at = time.monotonic() + logging_cfg.summary_interval_sec
+    next_summary_at = time.monotonic() + logging_cfg.write_interval_sec
 
     try:
         while True:
@@ -248,7 +240,7 @@ def main():
             previous_avg = mean(window) if window else voltage
             window.append(voltage)
             current_avg = mean(window)
-            summary_values.append(voltage)
+            raw_samples.append((datetime.now().isoformat(timespec="seconds"), voltage))
 
             now = time.monotonic()
             delta = voltage - previous_avg
@@ -268,13 +260,13 @@ def main():
                 )
 
             if now >= next_summary_at:
-                # 5分ごとに集計を確定し、次の窓を開始する。
+                # 5分ごとに生サンプルを書き出し、次の窓を開始する。
                 # 日付入りファイル名を使っている場合は、ここで自動的に当日ファイルへ切り替わる。
                 log_path = resolve_log_path(logging_cfg.output_dir, logging_cfg.output_file_template)
                 ensure_log_file(log_path)
-                append_summary(log_path, summary_values)
-                summary_values.clear()
-                next_summary_at = now + logging_cfg.summary_interval_sec
+                append_samples(log_path, raw_samples)
+                raw_samples.clear()
+                next_summary_at = now + logging_cfg.write_interval_sec
 
             # 計測処理時間を差し引いて、できるだけ1秒周期を維持する。
             elapsed = time.monotonic() - loop_started
@@ -282,6 +274,10 @@ def main():
             if sleep_sec > 0:
                 time.sleep(sleep_sec)
     finally:
+        # 終了時に未書き出しバッファがあれば保存する。
+        log_path = resolve_log_path(logging_cfg.output_dir, logging_cfg.output_file_template)
+        ensure_log_file(log_path)
+        append_samples(log_path, raw_samples)
         # 終了時は安全側に戻す。
         GPIO.output(sensor.pulse_pin, GPIO.LOW)
         GPIO.cleanup()

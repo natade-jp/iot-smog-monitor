@@ -16,8 +16,8 @@
 		"file_path": "/opt/iot-smog-monitor/assets/alert.wav"
 	},
 	"logging": {
-		"summary_interval_sec": 300,
+		"write_interval_sec": 300,
 		"output_dir": "/opt/iot-smog-monitor/data",
-		"output_file_template": "smell_summary_%Y-%m-%d.csv"
+		"output_file_template": "smell_raw_%Y-%m-%d.csv"
 	}
 }
