@@ -157,20 +157,34 @@ cd ~/iot-smog-monitor
 git pull origin main
 ```
 
-3. （必要なら）設定差分を確認・反映
+3. （必要な場合のみ）運用中設定の退避  
+`install.sh` は `app/config.json` を上書きします。  
+ただし、新しい設定項目が追加される更新もあるため、復元する場合は新しい `app/config.json` と差分確認してから反映してください。
+
+```bash
+sudo cp /opt/iot-smog-monitor/app/config.json /tmp/config.json.bak
+```
+
+4. 最新コードとの差分確認（必要なら事前に調整）
 
 ```bash
 git diff app/config.json
 nano app/config.json
 ```
 
-4. 再インストール（`/opt/iot-smog-monitor` 配下を更新し systemd を再登録）
+5. 再インストール（`/opt/iot-smog-monitor` 配下を更新し systemd を再登録）
 
 ```bash
 sudo bash deploy/install.sh
 ```
 
-5. 再起動と状態確認
+6. 退避した設定を復元（必要な場合のみ）
+
+```bash
+sudo cp /tmp/config.json.bak /opt/iot-smog-monitor/app/config.json
+```
+
+7. 再起動と状態確認
 
 ```bash
 sudo systemctl restart smog-monitor.service
