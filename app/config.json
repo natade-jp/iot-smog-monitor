@@ -7,8 +7,8 @@
 		"divider_ratio": 2.0
 	},
 	"detection": {
-		"window_sec": 10,
-		"trigger_delta_v": 0.02,
+		"window_sec": 60,
+		"trigger_delta_v": 0.0005,
 		"cooldown_sec": 30
 	},
 	"audio": {
