@@ -33,7 +33,7 @@ chmod 755 "${DEST_DIR}/data"
 chown -R pi:pi "${DEST_DIR}/data"
 
 # Python依存を apt で導入（PEP 668 環境でも安全）
-apt update
+# apt update
 apt install -y \
   python3-rpi.gpio \
   python3-smbus
