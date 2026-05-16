@@ -9,7 +9,8 @@
 	"detection": {
 		"window_sec": 60,
 		"trigger_delta_v": 0.0005,
-		"cooldown_sec": 30
+		"cooldown_sec": 30,
+		"startup_ignore_sec": 300
 	},
 	"audio": {
 		"player_command": "aplay",

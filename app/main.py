@@ -39,11 +39,13 @@ class DetectionConfig:
         window_sec: 移動平均に使う窓サイズ（秒）。
         trigger_delta_v: 急増判定しきい値（今回値 - 直前平均）の電圧差（V）。
         cooldown_sec: アラート再通知までの最小待機時間（秒）。
+        startup_ignore_sec: 起動直後にアラート判定を無効化する時間（秒）。
     """
 
     window_sec: int
     trigger_delta_v: float
     cooldown_sec: int
+    startup_ignore_sec: int
 
 
 @dataclass
@@ -100,6 +102,7 @@ def load_config(path: Path):
         window_sec=raw["detection"]["window_sec"],
         trigger_delta_v=raw["detection"]["trigger_delta_v"],
         cooldown_sec=raw["detection"]["cooldown_sec"],
+        startup_ignore_sec=raw["detection"].get("startup_ignore_sec", 0),
     )
     audio = AudioConfig(
         player_command=raw["audio"]["player_command"],
@@ -125,7 +128,7 @@ def ensure_log_file(path: Path):
     if not path.exists():
         with path.open("w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
-            writer.writerow(["timestamp", "voltage_v"])
+            writer.writerow(["timestamp", "voltage_v", "avg_voltage_v", "level"])
 
 
 def resolve_log_path(output_dir: str, output_file_template: str, now: datetime | None = None) -> Path:
@@ -165,20 +168,20 @@ def read_voltage(bus: SMBus, address: int, divider_ratio: float) -> float:
     return measured_voltage * divider_ratio
 
 
-def append_samples(path: Path, values: list[tuple[str, float]]):
+def append_samples(path: Path, values: list[tuple[str, float, float, str]]):
     """現在の集計窓に溜めた生サンプルを CSV にまとめて追記する。
 
     Args:
         path: 出力先 CSV パス。
-        values: (ISO日時文字列, 電圧値) の列。
+        values: (ISO日時文字列, 電圧値, 移動平均電圧値, 判定レベル) の列。
     """
 
     if not values:
         return
     with path.open("a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        for timestamp, voltage in values:
-            writer.writerow([timestamp, f"{voltage:.6f}"])
+        for timestamp, voltage, avg_voltage, level in values:
+            writer.writerow([timestamp, f"{voltage:.6f}", f"{avg_voltage:.6f}", level])
 
 
 def play_alert(audio_cfg: AudioConfig):
@@ -223,9 +226,10 @@ def main():
     # 直近N秒（既定10秒）の移動平均用バッファ。
     window = deque(maxlen=max(1, int(detection.window_sec / sensor.sample_interval_sec)))
     # 5分ごとCSV書き込みのために、生サンプルを一時保持する。
-    raw_samples: list[tuple[str, float]] = []
+    raw_samples: list[tuple[str, float, float, str]] = []
     last_alert_at = 0.0
     next_summary_at = time.monotonic() + logging_cfg.write_interval_sec
+    alert_enabled_at = time.monotonic() + detection.startup_ignore_sec
 
     try:
         while True:
@@ -240,24 +244,39 @@ def main():
             previous_avg = mean(window) if window else voltage
             window.append(voltage)
             current_avg = mean(window)
-            raw_samples.append((datetime.now().isoformat(timespec="seconds"), voltage))
-
             now = time.monotonic()
             delta = voltage - previous_avg
+            timestamp = datetime.now().isoformat(timespec="seconds")
+            level = "INFO"
             # 急増判定: 「今回値 - 直前までの平均」がしきい値以上ならアラート。
             # cooldown_sec 内は再通知を抑制して連続再生を避ける。
-            if delta >= detection.trigger_delta_v and (now - last_alert_at) >= detection.cooldown_sec:
+            is_startup_ignored = now < alert_enabled_at
+            if (
+                (not is_startup_ignored)
+                and delta >= detection.trigger_delta_v
+                and (now - last_alert_at) >= detection.cooldown_sec
+            ):
+                level = "ALERT"
                 print(
-                    f"[ALERT] {datetime.now().isoformat(timespec='seconds')} "
+                    f"[ALERT] {timestamp} "
                     f"voltage={voltage:.3f}V avg10s={current_avg:.3f}V delta={delta:.3f}V"
                 )
                 play_alert(audio)
                 last_alert_at = now
             else:
-                print(
-                    f"[INFO ] {datetime.now().isoformat(timespec='seconds')} "
-                    f"voltage={voltage:.3f}V avg10s={current_avg:.3f}V"
-                )
+                if is_startup_ignored:
+                    remaining_sec = max(0, int(alert_enabled_at - now))
+                    print(
+                        f"[INFO ] {timestamp} "
+                        f"voltage={voltage:.3f}V avg10s={current_avg:.3f}V "
+                        f"(startup_ignore: {remaining_sec}s)"
+                    )
+                else:
+                    print(
+                        f"[INFO ] {timestamp} "
+                        f"voltage={voltage:.3f}V avg10s={current_avg:.3f}V"
+                    )
+            raw_samples.append((timestamp, voltage, current_avg, level))
 
             if now >= next_summary_at:
                 # 5分ごとに生サンプルを書き出し、次の窓を開始する。

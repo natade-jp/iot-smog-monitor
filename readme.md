@@ -188,12 +188,15 @@ journalctl -u smog-monitor.service -n 100
 - CSV には以下を追記
     - timestamp
     - voltage_v
+    - avg_voltage_v
+    - level (`ALERT` / `INFO`)
 
 ## 主要設定 (`app/config.json`)
 
 - `detection.window_sec`: 平均の窓サイズ（秒）
 - `detection.trigger_delta_v`: 急増判定しきい値（V）
 - `detection.cooldown_sec`: アラート連発を防ぐ待ち時間（秒）
+- `detection.startup_ignore_sec`: 起動直後にアラート判定を無効化する時間（秒）
 - `audio.file_path`: 再生する音声ファイル
 - `logging.write_interval_sec`: 生ログをまとめて書き出す周期（秒）
 - `logging.output_dir`: 生ログの出力先ディレクトリ
