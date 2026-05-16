@@ -200,7 +200,7 @@ journalctl -u smog-monitor.service -n 100
 - `%Y-%m-%d` は `yyyy-mm-dd` 形式です（例: `2026-05-09`）
 - 1秒サンプルを5分ごとにまとめて追記
 - CSV には以下を追記
-    - timestamp
+    - timestamp（`YYYY-MM-DD HH:MM:SS`）
     - voltage_v
     - avg_voltage_v
     - level (`ALERT` / `INFO`)

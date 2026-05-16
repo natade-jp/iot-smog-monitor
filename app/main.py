@@ -246,7 +246,8 @@ def main():
             current_avg = mean(window)
             now = time.monotonic()
             delta = voltage - previous_avg
-            timestamp = datetime.now().isoformat(timespec="seconds")
+            # Excel で自動認識されやすい日時形式で保存する。
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             level = "INFO"
             # 急増判定: 「今回値 - 直前までの平均」がしきい値以上ならアラート。
             # cooldown_sec 内は再通知を抑制して連続再生を避ける。
